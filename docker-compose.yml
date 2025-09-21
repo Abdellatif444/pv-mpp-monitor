@@ -33,6 +33,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    # Install deps at runtime so the node_modules volume has latest packages
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
     depends_on:
       - backend
     restart: unless-stopped
