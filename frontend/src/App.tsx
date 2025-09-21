@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store'
 import KpiCard from './components/KpiCard'
 import Charts from './components/Charts'
@@ -24,6 +24,8 @@ export default function App() {
   const [from, setFrom] = useState<string>('')
   const [to, setTo] = useState<string>('')
   const [downsample, setDownsample] = useState<number>(1)
+  const [fileKey, setFileKey] = useState(0)
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     connectWS()
@@ -81,9 +83,20 @@ export default function App() {
                 }
               }}
             >Importer</button>
-            <label className="px-3 py-1 rounded bg-emerald-600 text-white cursor-pointer">
-              Importer un fichier (CSV/XLSX)
-              <input type="file" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,text/csv" className="hidden" onChange={async (e) => {
+            <button
+              className="px-3 py-1 rounded bg-emerald-600 text-white"
+              onClick={() => {
+                // Ouvre explicitement le sélecteur de fichiers
+                fileRef.current?.click()
+              }}
+            >Importer un fichier (CSV/XLSX)</button>
+            <input
+              key={fileKey}
+              ref={fileRef}
+              type="file"
+              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,text/csv"
+              className="hidden"
+              onChange={async (e) => {
                 const f = e.target.files?.[0]
                 if (!f) return
                 try {
@@ -92,10 +105,11 @@ export default function App() {
                   const detail = err?.response?.data?.detail || err?.message || 'Erreur inconnue'
                   alert(`Erreur lors de l'import du fichier: ${detail}`)
                 } finally {
-                  e.currentTarget.value = ''
+                  // Réinitialise la valeur pour pouvoir réimporter le même fichier plus tard
+                  if (e.currentTarget) e.currentTarget.value = ''
                 }
-              }} />
-            </label>
+              }}
+            />
             <button
               className="px-3 py-1 rounded bg-gray-100"
               onClick={async () => {
@@ -109,6 +123,8 @@ export default function App() {
                 if (confirm('Supprimer toutes les données ?')) {
                   try {
                     await useStore.getState().resetData()
+                    setFileKey((k) => k + 1)
+                    setText('')
                   } catch (err: any) {
                     const detail = err?.response?.data?.detail || err?.message || 'Erreur inconnue'
                     alert(`Erreur lors de la réinitialisation: ${detail}`)
