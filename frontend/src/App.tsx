@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store'
 import KpiCard from './components/KpiCard'
 import Charts from './components/Charts'
-import { exportCSV } from './utils/export'
+import { exportCSV, exportXLSX, exportPDF } from './utils/export'
 
 function useKPIs() {
   const samples = useStore((s) => s.samples)
@@ -48,6 +48,8 @@ export default function App() {
           <div className="flex items-center gap-4">
             <span className="text-sm">WebSocket: <b className={wsStatus === 'connected' ? 'text-green-600' : (wsStatus === 'connecting' ? 'text-yellow-600' : 'text-red-600')}>{wsStatus}</b></span>
             <button className="px-3 py-1 rounded bg-indigo-600 text-white" onClick={() => exportCSV(samples)}>Exporter CSV</button>
+            <button className="px-3 py-1 rounded bg-green-600 text-white" onClick={() => exportXLSX(samples)}>Exporter Excel</button>
+            <button className="px-3 py-1 rounded bg-rose-600 text-white" onClick={() => exportPDF(samples)}>Exporter PDF</button>
           </div>
         </div>
       </header>
