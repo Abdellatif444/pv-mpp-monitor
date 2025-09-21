@@ -88,24 +88,40 @@ async def import_file(
     db: Session = Depends(get_db),
 ):
     """Import CSV or XLSX from an uploaded file."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     content = await file.read()
     filename = (file.filename or "").lower()
     ctype = (file.content_type or "").lower()
+    
+    logger.info(f"Importing file: {filename}, content-type: {ctype}, size: {len(content)} bytes")
 
     try:
         if filename.endswith(".xlsx") or "spreadsheetml" in ctype:
+            logger.info("Parsing as XLSX")
             parsed = parse_xlsx_bytes(content)
         else:
+            logger.info("Parsing as CSV")
             parsed = parse_csv_bytes(content)
+        logger.info(f"Parsed {len(parsed)} rows")
     except Exception as e:
+        logger.error(f"Parse error: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
 
     if not parsed:
+        logger.error("No valid rows found")
         raise HTTPException(status_code=400, detail="No valid rows found in file")
 
     items: List[SampleIn] = []
     for d in parsed:
-        items.append(SampleIn(**d, source=SampleSource.IMPORT))
+        try:
+            items.append(SampleIn(**d, source=SampleSource.IMPORT))
+        except Exception as e:
+            logger.error(f"Error creating SampleIn: {e}, data: {d}")
+            continue
+    
+    logger.info(f"Created {len(items)} SampleIn objects")
 
     created: List[Sample] = []
     for it in items:
@@ -115,6 +131,7 @@ async def import_file(
         created.append(obj)
 
     db.commit()
+    logger.info(f"Committed {len(created)} samples to database")
 
     for s in created:
         await manager.broadcast(sample_to_message(s.to_dict()))

@@ -60,6 +60,59 @@ def parse_csv_bytes(data: bytes) -> List[Dict[str, Any]]:
             continue
     if text is None:
         text = data.decode("utf-8", errors="ignore")
+    
+    # Forcer le traitement comme CSV avec séparateur ; si détecté
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    if not lines:
+        return []
+    
+    # Vérifier si c'est un format CSV avec en-tête et séparateur ;
+    if ';' in lines[0]:
+        header_parts = [p.strip().lower() for p in lines[0].split(';')]
+        samples = []
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            parts = [p.strip() for p in line.split(';')]
+            if len(parts) < 2:
+                continue
+            
+            data = {}
+            for i, part in enumerate(header_parts):
+                if i >= len(parts):
+                    break
+                val = parts[i]
+                if not val:
+                    continue
+                
+                if part in ('v', 'voltage'):
+                    try:
+                        data['V'] = float(val)
+                    except ValueError:
+                        continue
+                elif part in ('i', 'current'):
+                    try:
+                        data['I'] = float(val)
+                    except ValueError:
+                        continue
+                elif part in ('p', 'power'):
+                    try:
+                        data['P'] = float(val)
+                    except ValueError:
+                        continue
+                elif part in ('t_c', 'temp', 'temperature'):
+                    try:
+                        data['T'] = float(val)
+                    except ValueError:
+                        continue
+            
+            if 'V' in data and 'I' in data:
+                if 'P' not in data:
+                    data['P'] = data['V'] * data['I']
+                samples.append(data)
+        return samples
+    
+    # Sinon, utiliser le parser existant
     return parse_text_samples(text)
 
 
