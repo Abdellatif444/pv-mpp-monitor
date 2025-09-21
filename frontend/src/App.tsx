@@ -72,8 +72,13 @@ export default function App() {
               className="px-3 py-1 rounded bg-green-600 text-white"
               onClick={async () => {
                 if (!text.trim()) return
-                await importText(text)
-                setText('')
+                try {
+                  await importText(text)
+                  setText('')
+                } catch (err: any) {
+                  const detail = err?.response?.data?.detail || err?.message || 'Erreur inconnue'
+                  alert(`Erreur lors de l'import texte: ${detail}`)
+                }
               }}
             >Importer</button>
             <label className="px-3 py-1 rounded bg-emerald-600 text-white cursor-pointer">
@@ -81,8 +86,14 @@ export default function App() {
               <input type="file" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,text/csv" className="hidden" onChange={async (e) => {
                 const f = e.target.files?.[0]
                 if (!f) return
-                await useStore.getState().importFile(f)
-                e.currentTarget.value = ''
+                try {
+                  await useStore.getState().importFile(f)
+                } catch (err: any) {
+                  const detail = err?.response?.data?.detail || err?.message || 'Erreur inconnue'
+                  alert(`Erreur lors de l'import du fichier: ${detail}`)
+                } finally {
+                  e.currentTarget.value = ''
+                }
               }} />
             </label>
             <button
@@ -96,7 +107,12 @@ export default function App() {
               className="px-3 py-1 rounded bg-red-600 text-white"
               onClick={async () => {
                 if (confirm('Supprimer toutes les données ?')) {
-                  await useStore.getState().resetData()
+                  try {
+                    await useStore.getState().resetData()
+                  } catch (err: any) {
+                    const detail = err?.response?.data?.detail || err?.message || 'Erreur inconnue'
+                    alert(`Erreur lors de la réinitialisation: ${detail}`)
+                  }
                 }
               }}
             >Réinitialiser</button>
