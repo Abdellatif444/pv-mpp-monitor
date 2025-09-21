@@ -74,8 +74,13 @@ export const useStore = create<State>((set, get) => ({
     const params: any = {}
     if (filters.from) params.from = filters.from
     if (filters.to) params.to = filters.to
-    const r = await api.get<MPP>('/api/mpp', { params })
-    set({ mpp: r.data })
+    try {
+      const r = await api.get<MPP>('/api/mpp', { params })
+      set({ mpp: r.data })
+    } catch (e) {
+      // When no data exists, backend returns 404; keep mpp undefined
+      set({ mpp: undefined })
+    }
   },
 
   importText: async (text: string) => {
@@ -95,7 +100,13 @@ export const useStore = create<State>((set, get) => ({
 
   resetData: async () => {
     await api.delete('/api/samples')
-    set({ samples: [], mpp: undefined })
+    // Clear samples and date filters, keep smoothing/window
+    set((s) => ({ samples: [], mpp: undefined, filters: { ...s.filters, from: undefined, to: undefined } }))
+    // Optionally refresh to reflect empty state explicitly
+    await get().fetchSamples()
+    // mpp will 404 when empty; keep undefined
+    // Ensure WebSocket remains connected for live updates after reset
+    get().connectWS()
   },
 }))
 
