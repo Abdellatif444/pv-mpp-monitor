@@ -22,6 +22,8 @@ type State = {
   fetchSamples: () => Promise<void>
   fetchMPP: () => Promise<void>
   importText: (text: string) => Promise<void>
+  importFile: (file: File) => Promise<void>
+  resetData: () => Promise<void>
 }
 
 let socket: WebSocket | null = null
@@ -81,6 +83,19 @@ export const useStore = create<State>((set, get) => ({
     // refresh after import
     await get().fetchSamples()
     await get().fetchMPP()
+  },
+
+  importFile: async (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    await api.post('/api/import/file', fd)
+    await get().fetchSamples()
+    await get().fetchMPP()
+  },
+
+  resetData: async () => {
+    await api.delete('/api/samples')
+    set({ samples: [], mpp: undefined })
   },
 }))
 

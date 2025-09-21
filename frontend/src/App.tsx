@@ -67,7 +67,7 @@ export default function App() {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <div className="mt-3 flex gap-3">
+          <div className="mt-3 flex gap-3 items-center flex-wrap">
             <button
               className="px-3 py-1 rounded bg-green-600 text-white"
               onClick={async () => {
@@ -76,6 +76,15 @@ export default function App() {
                 setText('')
               }}
             >Importer</button>
+            <label className="px-3 py-1 rounded bg-emerald-600 text-white cursor-pointer">
+              Importer un fichier (CSV/XLSX)
+              <input type="file" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,text/csv" className="hidden" onChange={async (e) => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                await useStore.getState().importFile(f)
+                e.currentTarget.value = ''
+              }} />
+            </label>
             <button
               className="px-3 py-1 rounded bg-gray-100"
               onClick={async () => {
@@ -83,6 +92,14 @@ export default function App() {
                 await fetchSamples(); await fetchMPP();
               }}
             >Rafraîchir</button>
+            <button
+              className="px-3 py-1 rounded bg-red-600 text-white"
+              onClick={async () => {
+                if (confirm('Supprimer toutes les données ?')) {
+                  await useStore.getState().resetData()
+                }
+              }}
+            >Réinitialiser</button>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={smoothing} onChange={(e) => setSmoothing(e.target.checked)} />
               Lissage (moyenne glissante)

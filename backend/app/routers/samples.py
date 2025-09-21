@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union
 from datetime import datetime
@@ -8,7 +8,7 @@ from ..database import get_db
 from ..models.sample import Sample, SampleSource
 from ..schemas.sample import SampleIn, SampleOut, MPPResponse, SampleImportText
 from ..utils.security import verify_write_access
-from ..utils.parser import parse_text_samples
+from ..utils.parser import parse_text_samples, parse_csv_bytes, parse_xlsx_bytes
 from ..services.mpp import compute_mpp
 from ..services.websocket import manager, sample_to_message
 
@@ -80,6 +80,58 @@ async def create_samples(
         await manager.broadcast(sample_to_message(s.to_dict()))
 
     return [_to_out(s) for s in created]
+
+
+@router.post("/api/import/file", response_model=List[SampleOut], dependencies=[Depends(verify_write_access)])
+async def import_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Import CSV or XLSX from an uploaded file."""
+    content = await file.read()
+    filename = (file.filename or "").lower()
+    ctype = (file.content_type or "").lower()
+
+    try:
+        if filename.endswith(".xlsx") or "spreadsheetml" in ctype:
+            parsed = parse_xlsx_bytes(content)
+        else:
+            parsed = parse_csv_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {e}")
+
+    if not parsed:
+        raise HTTPException(status_code=400, detail="No valid rows found in file")
+
+    items: List[SampleIn] = []
+    for d in parsed:
+        items.append(SampleIn(**d, source=SampleSource.IMPORT))
+
+    created: List[Sample] = []
+    for it in items:
+        obj = _to_model(it)
+        db.add(obj)
+        db.flush()
+        created.append(obj)
+
+    db.commit()
+
+    for s in created:
+        await manager.broadcast(sample_to_message(s.to_dict()))
+
+    return [_to_out(s) for s in created]
+
+
+@router.delete("/api/samples", dependencies=[Depends(verify_write_access)])
+async def delete_all_samples(db: Session = Depends(get_db)):
+    """Delete all samples (reset)."""
+    try:
+        count = db.query(Sample).delete()
+        db.commit()
+        return {"deleted": count}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/samples", response_model=List[SampleOut])
