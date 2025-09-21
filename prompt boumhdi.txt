@@ -1,0 +1,163 @@
+PROMPT (à copier-coller tel quel)
+
+Contexte général
+Je mène un projet académique de supervision d’un panneau photovoltaïque. Le montage est simulé sous Proteus (ESP32/Arduino + capteurs : ACS712 pour le courant, pont diviseur pour la tension). Les mesures (tension V, courant I, puissance P calculée, température T) doivent être ingérées en temps réel ou importées afin d’afficher les courbes I-V (courant en fonction de la tension) et P-V (puissance en fonction de la tension), et d’extraire le point de puissance maximale (MPP).
+Des valeurs d’exemple sont fournies (forme texte type V:..V I:..A P:..W, ainsi qu’un JSON {t,V,I,P?}) ; le système doit les parser, les stocker et les tracer.
+
+Livrable attendu (structure du repo)
+
+Créer un monorepo avec exactement deux dossiers racine :
+
+frontend/ : application Web (UI, graphes, import/export, temps réel)
+
+backend/ : API, WebSocket, BDD, logique MPP
+
+À la racine, fournir aussi :
+
+docker-compose.yml pour lancer l’ensemble
+
+un README.md de mise en route (développement & production)
+
+fichiers .env.example pour front et back (variables listées)
+
+Aucun autre dossier racine n’est autorisé. Tout le projet doit être exécutable exclusivement via Docker.
+
+Stack technique à utiliser
+
+Backend (priorité à cette option)
+
+Option A (préférée) : Python FastAPI + Uvicorn, SQLite (dev) puis PostgreSQL (prod), SQLAlchemy, Pydantic, WebSocket pour le live.
+
+Option B : Node.js (Express) + TypeScript, Prisma, SQLite/PostgreSQL, Socket.IO.
+
+Frontend
+
+React + Vite + TypeScript, Tailwind CSS, et Chart.js ou Plotly.js (au choix, justifier).
+
+Gestion d’état : Zustand ou Redux Toolkit (au choix, justifier).
+
+Temps réel & ingestion
+
+WebSocket pour diffusion live des nouveaux points.
+
+Endpoints HTTP pour POST d’échantillons et import texte/CSV.
+
+Passerelle optionnelle : script Python (pyserial) côté poste développeur lisant le port série (depuis Proteus/COM) et poussant vers l’API ou le WebSocket.
+
+Intégration Blynk (optionnel)
+
+Connecteur Blynk REST API lisant des VPins (token + Vpins configurables dans .env), pour récupérer V/I/T si besoin.
+
+API à implémenter (contrats fonctionnels)
+
+POST /api/samples : body JSON {t?: ISODate, V: number, I: number, P?: number, T?: number, source?: string} (accepte un objet ou un tableau). Si P manquant, calculer P = V*I.
+
+GET /api/samples?from=&to=&limit= : renvoie la série triée par temps.
+
+GET /api/mpp?from=&to= : renvoie {Vmp, Imp, Pmp, index, t} sur l’intervalle.
+
+POST /api/import/text : reçoit du texte brut au format V:..V I:..A P:..W (lignes multiples), parse et insère.
+
+GET /api/health : statut service.
+
+WebSocket /ws/live : broadcast des nouveaux points.
+
+Sécurité : Auth simple par Bearer Token (clé dans .env) exigée sur toutes les routes d’écriture.
+
+Schéma de données (BDD)
+
+Table samples : id, t (datetime, défaut now), V (float), I (float), P (float), T (float nullable), source (enum: SERIAL|BLYNK|IMPORT|MANUAL).
+Index sur t.
+Nettoyage : dédupliquer par (t,V,I) si nécessaire.
+
+Frontend – UX & écrans
+
+Dashboard : cartes KPI (V, I, P, T), statut WebSocket, sélecteur de source (Live / Blynk / Import).
+
+Graph I-V : X=V, Y=I (scatter + lissage optionnel).
+
+Graph P-V : X=V, Y=P, avec point MPP (marqueur + tooltip {Vmp, Imp, Pmp}).
+
+Panneau Filtres : plage temporelle, downsample, lissage (moyenne glissante).
+
+Import : zone collée texte/CSV, aperçu parsing, bouton “Importer”.
+
+Exports : CSV des séries, PNG des graphes.
+
+Détection et affichage Voc (max V quand I≈0) et Isc (max I quand V≈0).
+
+Calculs & règles
+
+Si P absent : calculer P = V * I.
+
+MPP : rechercher le max de P et retourner (Vmp, Imp, Pmp) + index/temps.
+
+Lissage optionnel : moyenne glissante (fenêtre configurable).
+
+Arrondis : V/I à 2–3 décimales, P à 1–2 décimales.
+
+Unités claires (V, A, W, °C) sur axes et étiquettes.
+
+Données d’entrée (exemples à supporter)
+
+Texte brut multi-lignes (type) : V:20.2V I:0.10A P:2.1W … V:1.7V I:17.24A P:28.8W
+
+JSON : tableau d’objets {t,V,I,P?} ; P sera complété si manquant.
+
+Dockerisation – exigences strictes
+
+Objectif : Lancer tout le projet via docker compose up sans installer de dépendances locales (hors Docker).
+
+Un Dockerfile dans backend/ et un Dockerfile dans frontend/.
+
+Un docker-compose.yml à la racine qui orchestre :
+
+backend (expose 8000),
+
+frontend (expose 5173),
+
+db (PostgreSQL pour la prod ; SQLite autorisé en dev dans le conteneur back),
+
+option reverse-proxy simple si nécessaire.
+
+Volumes pour la persistance BDD (si PostgreSQL).
+
+Healthchecks pour backend et db.
+
+Fichiers .env.example pour front et back avec variables minimales :
+
+backend : API_PORT, DB_URL ou POSTGRES_*, API_TOKEN, WS_ENABLED, BLYNK_TOKEN?, VPIN_V?, VPIN_I?, VPIN_T?.
+
+frontend : VITE_API_BASE_URL, VITE_WS_URL, VITE_API_TOKEN.
+
+Commandes Make (ou NPM/Yarn scripts) documentées : dev, up, down, seed, lint, test.
+
+Le script passerelle série (si livré) n’est pas dans un conteneur obligatoire ; documenter son exécution locale et les variables (port COM, baud, token, URL API).
+
+Qualité, tests & docs
+
+README clair : prérequis Docker, étapes docker compose up, URLs d’accès (http://localhost:5173 front, http://localhost:8000/docs back), exemples de requêtes et import.
+
+Tests unitaires minima sur le parseur d’import et l’endpoint MPP.
+
+Validation des payloads (côté backend).
+
+Gestion d’erreurs lisible côté UI (toasts).
+
+Critères d’acceptation
+
+docker compose up lance backend, frontend (et db si utilisée) sans configuration supplémentaire.
+
+L’UI s’ouvre sur http://localhost:5173 et affiche des KPI vides mais fonctionnels.
+
+Import du bloc texte fourni → deux graphes I-V et P-V s’affichent, avec MPP correctement mis en évidence.
+
+POST /api/samples envoie un point et celui-ci apparaît en temps réel dans les graphes (WebSocket actif).
+
+Export CSV et PNG disponibles depuis l’UI.
+
+GET /api/mpp renvoie {Vmp, Imp, Pmp} cohérents sur l’intervalle requis.
+
+Bonus (optionnel)
+
+Thème sombre, i18n fr/en, tests e2e, rate-limit API, JWT au lieu de Bearer statique.
