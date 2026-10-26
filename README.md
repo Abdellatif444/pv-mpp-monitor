@@ -2,6 +2,14 @@
 
 A real-time monitoring system for photovoltaic panels with MPP (Maximum Power Point) tracking.
 
+## Screenshots
+
+Captured locally with Docker Compose on 26/10/2026. The values shown are sample data (simulated sensors), not measurements from a physical installation.
+
+| Dashboard (I-V and P-V curves, MPP) | API documentation (Swagger) |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Swagger](docs/screenshots/swagger.png) |
+
 ## Project Structure
 
 ```
