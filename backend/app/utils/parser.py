@@ -48,6 +48,43 @@ def parse_text_samples(text: str) -> List[Dict[str, Any]]:
                 samples.append(data)
         return samples
 
+    # Try plain CSV without header (V,I[,P][,T]) with ',' or ';'
+    csv_like = True
+    for ln in lines:
+        if not re.match(r"^\s*[+-]?[0-9]*\.?[0-9]+\s*[,;]\s*[+-]?[0-9]*\.?[0-9]+(\s*[,;]\s*[+-]?[0-9]*\.?[0-9]+){0,2}\s*$", ln):
+            csv_like = False
+            break
+    if csv_like:
+        for ln in lines:
+            d = ';' if ';' in ln else ','
+            parts = [p.strip() for p in ln.split(d)]
+            if len(parts) < 2:
+                continue
+            V = float(parts[0])
+            I = float(parts[1])
+            P = float(parts[2]) if len(parts) >= 3 and parts[2] != '' else V * I
+            T = float(parts[3]) if len(parts) >= 4 and parts[3] != '' else None
+            samples.append({'V': V, 'I': I, 'P': P, 'T': T})
+        return samples
+
+    # Fallback to key-value regex lines
+    for line in lines:
+        m = LINE_REGEX.search(line)
+        if not m:
+            continue
+        V = float(m.group(1))
+        I = float(m.group(2))
+        P = float(m.group(3)) if m.group(3) is not None else None
+        T = float(m.group(4)) if m.group(4) is not None else None
+        samples.append({
+            'V': V,
+            'I': I,
+            'P': P if P is not None else V * I,
+            'T': T,
+            't': datetime.utcnow().isoformat() + 'Z'
+        })
+    return samples
+
 
 def parse_csv_bytes(data: bytes) -> List[Dict[str, Any]]:
     """Decode bytes to text (try utf-8/utf-8-sig/latin-1) then reuse parse_text_samples."""
@@ -84,8 +121,10 @@ def parse_csv_bytes(data: bytes) -> List[Dict[str, Any]]:
                 val = parts[i]
                 if not val:
                     continue
-                
-                if part in ('v', 'voltage'):
+
+                if part in ('t', 'time', 'timestamp'):
+                    data['t'] = val
+                elif part in ('v', 'voltage'):
                     try:
                         data['V'] = float(val)
                     except ValueError:
@@ -181,41 +220,4 @@ def parse_xlsx_bytes(data: bytes) -> List[Dict[str, Any]]:
                 continue
             samples.append({"V": V, "I": I, "P": P if P is not None else V * I, "T": T})
 
-    return samples
-
-    # Try plain CSV without header (V,I[,P][,T]) with ',' or ';'
-    csv_like = True
-    for ln in lines:
-        if not re.match(r"^\s*[+-]?[0-9]*\.?[0-9]+\s*[,;]\s*[+-]?[0-9]*\.?[0-9]+(\s*[,;]\s*[+-]?[0-9]*\.?[0-9]+){0,2}\s*$", ln):
-            csv_like = False
-            break
-    if csv_like:
-        for ln in lines:
-            d = ';' if ';' in ln else ','
-            parts = [p.strip() for p in ln.split(d)]
-            if len(parts) < 2:
-                continue
-            V = float(parts[0])
-            I = float(parts[1])
-            P = float(parts[2]) if len(parts) >= 3 and parts[2] != '' else V * I
-            T = float(parts[3]) if len(parts) >= 4 and parts[3] != '' else None
-            samples.append({'V': V, 'I': I, 'P': P, 'T': T})
-        return samples
-
-    # Fallback to key-value regex lines
-    for line in lines:
-        m = LINE_REGEX.search(line)
-        if not m:
-            continue
-        V = float(m.group(1))
-        I = float(m.group(2))
-        P = float(m.group(3)) if m.group(3) is not None else None
-        T = float(m.group(4)) if m.group(4) is not None else None
-        samples.append({
-            'V': V,
-            'I': I,
-            'P': P if P is not None else V * I,
-            'T': T,
-            't': datetime.utcnow().isoformat() + 'Z'
-        })
     return samples

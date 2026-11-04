@@ -2,6 +2,10 @@
 
 A real-time monitoring system for photovoltaic panels with MPP (Maximum Power Point) tracking.
 
+![tests](https://github.com/Abdellatif444/pv-mpp-monitor/actions/workflows/tests.yml/badge.svg)
+
+November 2026: four defects found and fixed, each proved by a test. See [CASE_STUDY.md](CASE_STUDY.md).
+
 ## Screenshots
 
 Captured locally with Docker Compose on 26/10/2026. The values shown are sample data (simulated sensors), not measurements from a physical installation.
