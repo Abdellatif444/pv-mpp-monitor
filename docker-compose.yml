@@ -9,10 +9,13 @@ services:
       API_PORT: 8000
       API_TOKEN: devtoken
       WS_ENABLED: "true"
+      # Without this, the backend silently falls back to a SQLite file inside the source folder
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/solardb
     volumes:
       - ./backend:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/api/health'); sys.exit(0)\""]
